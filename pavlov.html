@@ -4,8 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>パブロフの犬シミュレーター</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Font Awesome (アイコン用に追加) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap');
         body {
@@ -35,28 +39,20 @@
 </head>
 <body class="text-gray-800">
 
-<!-- Chosen Palette: Warm & Calm (Cream, Soft Brown, Sky Blue) -->
-<!-- Application Structure Plan: 
-    1. Introduction: Setting the stage for the experiment.
-    2. Interactive Simulator (The Lab): Central piece where users interact with the "Dog" to perform the Pavlov experiment. It uses a state-based logic to track "Learning Progress".
-    3. Terminology Guide: A dynamic table that highlights terms based on the simulator's state to bridge experience and academic terms.
-    4. Learning Curve Graph: A Chart.js visualization to show the 'Conditioning' progress visually.
-    5. Daily Life Quiz: A concluding interactive section to apply the concepts to real-world scenarios.
-    WHY: This flow moves from direct experience (Simulation) to formalization (Terminology) to analysis (Data) and finally application (Quiz), which is ideal for middle school learning.
--->
-<!-- Visualization & Content Choices: 
-    - Simulation: Emoji and CSS animations for the dog to create emotional connection without SVGs.
-    - Progress Bar: Simple HTML/CSS for the Saliva meter (Real-time feedback).
-    - Chart.js: Line chart to show 'Association Strength' over time (Change over time goal).
-    - Quiz: Button-based interaction for immediate feedback.
-    - Confirming NO SVG/Mermaid.
--->
-<!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+<div class="max-w-4xl mx-auto px-4 py-6 md:py-8">
+    
+    <!-- ★ メニューに戻るボタンを追加 ★ -->
+    <div class="mb-6">
+        <a href="index.html" class="inline-flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-orange-600 transition bg-white py-2 px-4 rounded-xl shadow-sm border border-slate-100">
+            <i class="fa-solid fa-chevron-left text-xs"></i>
+            <i class="fa-solid fa-house"></i>
+            <span>メニューに戻る</span>
+        </a>
+    </div>
 
-<div class="max-w-4xl mx-auto px-4 py-8">
     <!-- Header -->
     <header class="text-center mb-10">
-        <h1 class="text-3xl md:text-4xl font-bold text-orange-600 mb-2">パブロフの犬シミュレーター</h1>
+        <h1 class="text-3xl md:text-4xl font-bold text-orange-600 mb-2">パブロフ of 犬シミュレーター</h1>
         <p class="text-gray-600 italic">〜 音とエサの不思議な実験を体験しよう 〜</p>
     </header>
 
@@ -286,6 +282,7 @@
         document.getElementById('saliva-bar').style.width = level + '%';
     }
 
+    // Terminology highlighting
     function highlightTerm(id) {
         const row = document.getElementById(id);
         row.classList.add('bg-yellow-100');
