@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>スキナー箱シミュレーター</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap');
+        body {
+            font-family: 'M PLUS Rounded 1c', sans-serif;
+            background-color: #f0f4f8;
+        }
+        .skinner-box {
+            position: relative;
+            background: #e2e8f0;
+            border: 8px solid #475569;
+            border-radius: 1.5rem;
+            height: 280px;
+            overflow: hidden;
+        }
+        .rat {
+            transition: all 0.5s ease;
+            position: absolute;
+            font-size: 3rem;
+        }
+        .lever {
+            transition: transform 0.1s;
+        }
+        .lever.pressed {
+            transform: rotate(-15deg);
+        }
+        .shock-active {
+            animation: shock-flash 0.1s infinite;
+        }
+        @keyframes shock-flash {
+            0% { background-color: #fef08a; }
+            50% { background-color: #fca5a5; }
+            100% { background-color: #fef08a; }
+        }
+        .hidden-section {
+            display: none;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+<div class="max-w-5xl mx-auto px-4 py-8">
+    <header class="text-center mb-8">
+        <h1 class="text-3xl md:text-4xl font-bold text-emerald-600 mb-2">スキナー箱シミュレーター</h1>
+        <p class="text-gray-600 italic">〜 自発的な行動が変わる「オペラント条件づけ」を実験しよう 〜</p>
+    </header>
+
+    <!-- タブナビゲーション -->
+    <nav class="flex justify-center gap-4 mb-8">
+        <button onclick="switchTab('lab')" id="tab-lab" class="px-6 py-2 rounded-full bg-emerald-500 text-white font-bold shadow-md transition hover:bg-emerald-600">実験室（ラボ）</button>
+        <button onclick="switchTab('quiz')" id="tab-quiz" class="px-6 py-2 rounded-full bg-white text-emerald-500 font-bold border-2 border-emerald-500 shadow-sm transition hover:bg-emerald-50">応用クイズ</button>
+    </nav>
+
+    <!-- 実験室セクション -->
+    <div id="section-lab" class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <div class="lg:col-span-7 space-y-6">
+            <!-- クエスト・ガイダンス -->
+            <div class="bg-white rounded-2xl p-4 shadow-md border-l-4 border-emerald-500">
+                <h2 class="text-md font-bold text-emerald-700 flex items-center gap-2">
+                    <span>🔬</span> 実験目標: <span id="quest-title">正の強化を体験しよう！</span>
+                </h2>
+                <p id="quest-desc" class="text-sm text-gray-600 mt-1">
+                    「正の強化」モードで、ラットが偶然レバーを押してエサを食べるのを待ちましょう。エサを繰り返すことで、自分でレバーを押す頻度が増えていきます。
+                </p>
+            </div>
+
+            <!-- スキナー箱の視覚表示 -->
+            <div class="bg-white rounded-3xl p-6 shadow-xl border-4 border-emerald-100">
+                <div class="flex justify-between items-center mb-4">
+                    <div class="flex gap-2 items-center">
+                        <span class="text-xs font-bold px-2 py-1 bg-slate-200 rounded text-slate-700">現在のモード</span>
+                        <span id="current-mode-badge" class="text-xs font-bold px-2 py-1 bg-emerald-100 text-emerald-700 rounded border border-emerald-300">正の強化</span>
+                    </div>
+                    <!-- シグナルランプ -->
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-gray-500">シグナル：</span>
+                        <div id="signal-lamp" class="w-6 h-6 rounded-full bg-gray-300 border-2 border-gray-400 transition-colors duration-300"></div>
+                    </div>
+                </div>
+
+                <!-- スキナー箱グラフィックエリア -->
+                <div id="skinner-box-area" class="skinner-box mb-4">
+                    <!-- 電気床のエフェクト用背景 -->
+                    <div id="shock-floor" class="absolute inset-0 pointer-events-none transition-colors duration-100"></div>
+                    
+                    <!-- エサ皿 -->
+                    <div class="absolute bottom-2 left-6 text-center">
+                        <div id="food-bowl" class="text-2xl transition-transform">🥣</div>
+                        <div id="food-item" class="absolute -top-4 left-2 text-xl opacity-0 transition-all duration-300">🥜</div>
+                    </div>
+
+                    <!-- レバー -->
+                    <div class="absolute bottom-16 left-0 flex items-center">
+                        <div id="skinner-lever" class="lever origin-left bg-gray-600 h-3 w-10 rounded-full cursor-pointer hover:bg-gray-500" onclick="playerPressLever()"></div>
+                        <span class="text-xs text-gray-500 ml-1">レバー</span>
+                    </div>
+
+                    <!-- スピーカー -->
+                    <div class="absolute top-4 left-4 text-3xl">🔊</div>
+
+                    <!-- ラット（ネズミ） -->
+                    <div id="rat-char" class="rat" style="bottom: 8px; left: 150px;">🐀</div>
+
+                    <!-- 電気ショックのビリビリ表現 -->
+                    <div id="lightning-effect" class="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-4xl opacity-0 transition-opacity">⚡</div>
+                </div>
+
+                <!-- ラットの現在の状態 -->
+                <div class="bg-slate-50 p-3 rounded-xl flex justify-between text-xs font-bold">
+                    <div>ラットの状態: <span id="rat-state" class="text-slate-600">ウロウロ探索中...</span></div>
+                    <div>レバー学習度: <span id="learning-progress" class="text-emerald-600">0%</span></div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-6 shadow-md">
+                <h3 class="text-sm font-bold text-gray-500 mb-3 text-center uppercase tracking-wider">学習の構造：三項随伴性（さんこうずいはんせい）</h3>
+                <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                    <div id="block-sd" class="p-3 rounded-xl border-2 border-gray-200 transition-all">
+                        <div class="font-bold text-gray-400 mb-1">① 弁別刺激 (S<sup>D</sup>)</div>
+                        <div class="text-slate-700" id="val-sd">ランプ消灯</div>
+                        <div class="text-[10px] text-gray-400 mt-1">行動のきっかけ</div>
+                    </div>
+                    <div id="block-r" class="p-3 rounded-xl border-2 border-gray-200 transition-all">
+                        <div class="font-bold text-gray-400 mb-1">② オペラント行動 (R)</div>
+                        <div class="text-slate-700" id="val-r">待機中</div>
+                        <div class="text-[10px] text-gray-400 mt-1">自発的な行動</div>
+                    </div>
+                    <div id="block-sr" class="p-3 rounded-xl border-2 border-gray-200 transition-all">
+                        <div class="font-bold text-gray-400 mb-1">③ 強化/罰刺激 (S<sup>R</sup>)</div>
+                        <div class="text-slate-700" id="val-sr">なし</div>
+                        <div class="text-[10px] text-gray-400 mt-1">もたらされる結果</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-5 space-y-6">
+            <!-- 実験モード変更ボタン群 -->
+            <div class="bg-white rounded-2xl p-6 shadow-md">
+                <h3 class="text-lg font-bold mb-4 text-slate-700 flex items-center gap-1">
+                    <span>⚙️</span> 実験モード切替
+                </h3>
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="setMode('reinforce-pos')" id="btn-mode-r-pos" class="p-3 rounded-xl text-xs font-bold border-2 border-emerald-500 bg-emerald-50 text-emerald-700 transition">
+                        正の強化<br><span class="text-[10px] font-normal text-emerald-600">エサがもらえる</span>
+                    </button>
+                    <button onclick="setMode('reinforce-neg')" id="btn-mode-r-neg" class="p-3 rounded-xl text-xs font-bold border-2 border-gray-200 text-gray-500 transition">
+                        負の強化<br><span class="text-[10px] font-normal">電気ショックを止める</span>
+                    </button>
+                    <button onclick="setMode('punish-pos')" id="btn-mode-p-pos" class="p-3 rounded-xl text-xs font-bold border-2 border-gray-200 text-gray-500 transition">
+                        正の罰<br><span class="text-[10px] font-normal">電気ショックが流れる</span>
+                    </button>
+                    <button onclick="setMode('punish-neg')" id="btn-mode-p-neg" class="p-3 rounded-xl text-xs font-bold border-2 border-gray-200 text-gray-500 transition">
+                        負の罰<br><span class="text-[10px] font-normal">エサが没収される</span>
+                    </button>
+                </div>
+                <div class="mt-4 p-3 bg-slate-50 rounded-xl text-[11px] text-slate-500" id="mode-explanation">
+                    <strong>正の強化とは：</strong>ラットがレバーを押すとエサ（嬉しいもの）が出てきます。これを繰り返すことで、レバーを押す頻度が増えていきます。
+                </div>
+            </div>
+
+            <!-- 学習経過グラフ -->
+            <div class="bg-white rounded-2xl p-6 shadow-md">
+                <h3 class="text-sm font-bold text-gray-500 mb-2 uppercase tracking-wider text-center">レバーを押した累計回数</h3>
+                <div class="h-48 relative">
+                    <canvas id="skinnerChart"></canvas>
+                </div>
+                <div class="mt-2 text-center">
+                    <button onclick="resetLab()" class="text-xs text-red-500 font-bold hover:underline">
+                        実験を完全にリセット
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="section-quiz" class="hidden-section max-w-2xl mx-auto space-y-6">
+        <div class="bg-white rounded-3xl p-8 shadow-xl text-center">
+            <h2 class="text-2xl font-bold mb-2">日常のオペラント条件づけクイズ</h2>
+            <p class="text-sm text-gray-500 mb-6">身の回りの出来事が、どの学習パターン（正の強化、負の強化、正の罰、負の罰）に該当するか仕分けよう！</p>
+            
+            <div id="quiz-box" class="bg-emerald-50 p-8 rounded-2xl border-2 border-dashed border-emerald-300 min-h-[180px] flex flex-col justify-center items-center">
+                <p id="quiz-question" class="text-lg font-bold mb-6 text-slate-800">勉強を頑張ったら、お小遣いをもらえた。嬉しくて、次ももっと勉強するようになった。</p>
+                
+                <div class="grid grid-cols-2 gap-3 w-full">
+                    <button onclick="answerQuiz('reinforce-pos')" class="bg-white hover:bg-emerald-100 text-slate-700 border border-emerald-300 font-bold py-2.5 px-4 rounded-xl text-xs transition">正の強化</button>
+                    <button onclick="answerQuiz('reinforce-neg')" class="bg-white hover:bg-emerald-100 text-slate-700 border border-emerald-300 font-bold py-2.5 px-4 rounded-xl text-xs transition">負の強化</button>
+                    <button onclick="answerQuiz('punish-pos')" class="bg-white hover:bg-emerald-100 text-slate-700 border border-emerald-300 font-bold py-2.5 px-4 rounded-xl text-xs transition">正の罰</button>
+                    <button onclick="answerQuiz('punish-neg')" class="bg-white hover:bg-emerald-100 text-slate-700 border border-emerald-300 font-bold py-2.5 px-4 rounded-xl text-xs transition">負の罰</button>
+                </div>
+            </div>
+            <div id="quiz-feedback" class="mt-6 text-md font-bold opacity-0 transition-all duration-300 p-4 rounded-xl"></div>
+            <button id="btn-next-quiz" onclick="loadNextQuiz()" class="mt-4 hidden bg-emerald-500 text-white hover:bg-emerald-600 py-2 px-6 rounded-lg font-bold text-sm transition">次の問題へ</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let state = {
+        mode: 'reinforce-pos', // reinforce-pos, reinforce-neg, punish-pos, punish-neg
+        learningLevel: 0,      // 0 to 100
+        leverPressCount: 0,
+        isShockActive: false,
+        hasFood: false,
+        questIndex: 0,
+        timeline: [0],         // 時間軸(秒)
+        cumPresses: [0],       // 累積レバー押し回数
+        secondsElapsed: 0,
+        ratX: 150,
+        ratStateText: "探索中...",
+        signalActive: false    // 弁別刺激(ランプ)のオンオフ
+    };
+
+    const quests = [
+        { title: "正の強化を体験しよう！", desc: "「正の強化」モードで、ラットが偶然レバーを押してエサを食べるのを待ちましょう。エサを繰り返すことで、自分でレバーを押す頻度が増えていきます。" },
+        { title: "弁別刺激（ランプ）を教えよう！", desc: "ランプが「緑色」に光っている時だけ、レバーを押すとエサが出る設定になりました。ランプが消えている時にレバーを押してもエサは出ません。ラットは賢く学習できるでしょうか？" },
+        { title: "負の強化（嫌なことを回避）をテストしよう！", desc: "床に弱い電気ショックが走り始めました！ラットがレバーを押すと、ショックが一時的に止まります。「不快な刺激を取り除く」ことで行動を増やすトレーニングです。" }
+    ];
+
+    const modeExplanations = {
+        'reinforce-pos': '<strong>正の強化とは：</strong>行動の後に「嬉しいもの（エサ）」が出現することで、その行動の頻度が増える学習です。',
+        'reinforce-neg': '<strong>負の強化とは：</strong>行動の後に「不快なもの（電気ショック）」が消失することで、その行動の頻度が増える学習です。（例：シートベルトをすると警告音が消える）',
+        'punish-pos': '<strong>正の罰とは：</strong>行動の後に「不快なもの（電気ショック）」が出現することで、その行動の頻度が減る学習です。（例：ストーブを触ると熱くて手を引っ込める）',
+        'punish-neg': '<strong>負の罰とは：</strong>行動の後に「嬉しいもの（エサ）」が消失することで、その行動の頻度が減る学習です。（例：宿題を忘れてゲームを没収される）'
+    };
+
+    const ctx = document.getElementById('skinnerChart').getContext('2d');
+    const skinnerChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: state.timeline,
+            datasets: [{
+                label: 'レバー累積回数',
+                data: state.cumPresses,
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                fill: true,
+                tension: 0.1,
+                borderWidth: 3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { title: { display: true, text: '経過時間（秒）', font: { size: 10 } } },
+                y: { min: 0, title: { display: true, text: '回数', font: { size: 10 } } }
+            },
+            plugins: { legend: { display: false } }
+        }
+    });
+
+    // 一定間隔でラットが自発的に何か行動を起こす
+    setInterval(() => {
+        state.secondsElapsed++;
+        
+        // 1秒ごとにグラフデータを更新（最大60秒分保持してスクロール）
+        state.timeline.push(state.secondsElapsed);
+        state.cumPresses.push(state.leverPressCount);
+        if (state.timeline.length > 30) {
+            state.timeline.shift();
+            state.cumPresses.shift();
+        }
+        skinnerChart.update();
+
+        // 負の強化モード中、レバーが押されていないとショックが続く
+        if (state.mode === 'reinforce-neg' && !state.isShockActive) {
+            triggerShock(true);
+        }
+
+        // ラットが自発的に行動を決定する
+        // 学習レベルが高いほど、レバーを押す頻度（確率）が高くなる
+        const rand = Math.random() * 100;
+        let pressThreshold = 5; // 初期状態では5%の確率でレバーに近づく
+        if (state.mode === 'reinforce-pos' || state.mode === 'reinforce-neg') {
+            pressThreshold += state.learningLevel * 0.7; // 学習が進むと最大75%に上昇
+        } else if (state.mode === 'punish-pos' || state.mode === 'punish-neg') {
+            pressThreshold = Math.max(1, pressThreshold - state.learningLevel * 0.1); // 罰を受けると確率は下がる
+        }
+
+        if (rand < pressThreshold) {
+            // レバーを押す行動
+            moveRatToLever(() => {
+                ratPressLever();
+            });
+        } else if (rand < 50) {
+            // ウロウロ動き回る
+            moveRatRandomly();
+        } else if (state.hasFood && rand < 80) {
+            // エサ皿に近づいて食べる
+            moveRatToBowl(() => {
+                eatFood();
+            });
+        } else {
+            // おやすみ/停止
+            state.ratStateText = "休憩中...";
+            document.getElementById('rat-char').innerText = '🐀💤';
+            updateUI();
+        }
+    }, 2000);
+
+    // 2分ごとに弁別刺激のシグナルランプがランダムに切り替わる（クエスト2用）
+    setInterval(() => {
+        if (state.questIndex === 1) {
+            state.signalActive = !state.signalActive;
+            const lamp = document.getElementById('signal-lamp');
+            if (state.signalActive) {
+                lamp.style.backgroundColor = '#10b981'; // 緑
+                document.getElementById('val-sd').innerText = "ランプ緑点灯";
+                document.getElementById('block-sd').classList.add('border-emerald-300', 'bg-emerald-50');
+            } else {
+                lamp.style.backgroundColor = '#d1d5db'; // 消灯
+                document.getElementById('val-sd').innerText = "ランプ消灯";
+                document.getElementById('block-sd').classList.remove('border-emerald-300', 'bg-emerald-50');
+            }
+        }
+    }, 6000);
+
+    function moveRatToLever(callback) {
+        state.ratStateText = "レバーに近づいている...";
+        state.ratX = 40; // レバーの座標（左端）
+        const rat = document.getElementById('rat-char');
+        rat.style.left = state.ratX + 'px';
+        rat.innerText = '🐀';
+        updateUI();
+        setTimeout(callback, 600);
+    }
+
+    function moveRatToBowl(callback) {
+        state.ratStateText = "エサ皿に向かっている...";
+        state.ratX = 70; // エサ皿の座標
+        const rat = document.getElementById('rat-char');
+        rat.style.left = state.ratX + 'px';
+        rat.innerText = '🐀';
+        updateUI();
+        setTimeout(callback, 600);
+    }
+
+    function moveRatRandomly() {
+        state.ratStateText = "ウロウロ探索中...";
+        state.ratX = 100 + Math.random() * 120;
+        const rat = document.getElementById('rat-char');
+        rat.style.left = state.ratX + 'px';
+        rat.innerText = '🐀';
+        updateUI();
+    }
+
+    // ラットが自発的にレバーを押したときの処理
+    function ratPressLever() {
+        triggerLeverVisual();
+        state.leverPressCount++;
+        state.ratStateText = "レバーを押した！";
+        
+        // 三項随伴性のハイライト
+        highlightBlock('block-r', 'レバーを押す');
+
+        // モード別の結果処理
+        evaluateResult();
+    }
+
+    // プレイヤーが無理やりレバーを押させた場合（学習が少し進むきっかけに）
+    function playerPressLever() {
+        triggerLeverVisual();
+        state.leverPressCount++;
+        state.ratStateText = "（手動）レバーが押された！";
+        highlightBlock('block-r', 'レバーを押す（強制）');
+        evaluateResult();
+    }
+
+    function triggerLeverVisual() {
+        const lever = document.getElementById('skinner-lever');
+        lever.classList.add('pressed');
+        setTimeout(() => lever.classList.remove('pressed'), 200);
+    }
+
+    function evaluateResult() {
+        if (state.mode === 'reinforce-pos') {
+            // 【正の強化】エサを出す
+            if (state.questIndex === 1 && !state.signalActive) {
+                // クエスト2：ランプが消えている時はエサが出ない
+                state.ratStateText = "レバーを押したが何も起きない...";
+                highlightBlock('block-sr', '変化なし（消灯時）');
+                return;
+            }
+            dropFood();
+            state.learningLevel = Math.min(100, state.learningLevel + 15);
+            highlightBlock('block-sr', 'エサが出る（＋強化）');
+
+            if (state.questIndex === 0 && state.learningLevel >= 80) {
+                advanceQuest();
+            } else if (state.questIndex === 1 && state.learningLevel >= 90) {
+                advanceQuest();
+            }
+        } 
+        else if (state.mode === 'reinforce-neg') {
+            // 【負の強化】電気ショックを止める
+            if (state.isShockActive) {
+                triggerShock(false);
+                state.learningLevel = Math.min(100, state.learningLevel + 20);
+                state.ratStateText = "ショックが止まって安心！";
+                highlightBlock('block-sr', 'ショック停止（ー強化）');
+
+                if (state.questIndex === 2 && state.learningLevel >= 80) {
+                    advanceQuest();
+                }
+            }
+        } 
+        else if (state.mode === 'punish-pos') {
+            // 【正の罰】嫌な電気ショックを与える
+            triggerShock(true);
+            state.learningLevel = Math.min(100, state.learningLevel + 25); // 罰の学習
+            state.ratStateText = "痛い！ショックを受けた！";
+            highlightBlock('block-sr', '電気ショック（＋罰）');
+            
+            // 痛がってすぐ逃げる
+            setTimeout(() => {
+                state.ratX = 180;
+                document.getElementById('rat-char').style.left = state.ratX + 'px';
+                triggerShock(false);
+            }, 800);
+        } 
+        else if (state.mode === 'punish-neg') {
+            // 【負の罰】エサを没収する
+            if (state.hasFood) {
+                removeFood();
+                state.learningLevel = Math.min(100, state.learningLevel + 20);
+                state.ratStateText = "エサが消えちゃった...";
+                highlightBlock('block-sr', 'エサ没収（ー罰）');
+            }
+        }
+        updateUI();
+    }
+
+    function dropFood() {
+        state.hasFood = true;
+        const food = document.getElementById('food-item');
+        food.style.transform = 'translateY(0)';
+        food.style.opacity = '1';
+    }
+
+    function removeFood() {
+        state.hasFood = false;
+        const food = document.getElementById('food-item');
+        food.style.opacity = '0';
+    }
+
+    function eatFood() {
+        if (state.hasFood) {
+            state.ratStateText = "エサをもぐもぐ食べている♪";
+            document.getElementById('rat-char').innerText = '🐀😋';
+            removeFood();
+            updateUI();
+        }
+    }
+
+    function triggerShock(active) {
+        state.isShockActive = active;
+        const floor = document.getElementById('shock-floor');
+        const lightning = document.getElementById('lightning-effect');
+        if (active) {
+            floor.classList.add('shock-active');
+            lightning.style.opacity = '1';
+        } else {
+            floor.classList.remove('shock-active');
+            lightning.style.opacity = '0';
+        }
+    }
+
+    // UIパーツのハイライト
+    function highlightBlock(id, text) {
+        const block = document.getElementById(id);
+        const valSpan = block.querySelector('div:nth-child(2)');
+        if (valSpan) valSpan.innerText = text;
+
+        block.classList.add('border-yellow-400', 'bg-yellow-50');
+        setTimeout(() => {
+            block.classList.remove('border-yellow-400', 'bg-yellow-50');
+        }, 1200);
+    }
+
+    function updateUI() {
+        document.getElementById('rat-state').innerText = state.ratStateText;
+        document.getElementById('learning-progress').innerText = Math.round(state.learningLevel) + '%';
+    }
+
+    function setMode(mode) {
+        state.mode = mode;
+        state.learningLevel = 0; // モードが変わったら一旦学習リセット
+        
+        // バッジ更新
+        const badge = document.getElementById('current-mode-badge');
+        badge.innerText = document.getElementById('btn-mode-' + mode.replace('-pos', '-pos').replace('-neg', '-neg')).innerText.split('\n')[0];
+        
+        // ボタンのアクティブクラス切り替え
+        ['reinforce-pos', 'reinforce-neg', 'punish-pos', 'punish-neg'].forEach(m => {
+            const btn = document.getElementById('btn-mode-' + m.replace('pos', 'pos').replace('neg', 'neg'));
+            if (m === mode) {
+                btn.classList.add('border-emerald-500', 'bg-emerald-50', 'text-emerald-700');
+                btn.classList.remove('border-gray-200', 'text-gray-500');
+            } else {
+                btn.classList.remove('border-emerald-500', 'bg-emerald-50', 'text-emerald-700');
+                btn.classList.add('border-gray-200', 'text-gray-500');
+            }
+        });
+
+        document.getElementById('mode-explanation').innerHTML = modeExplanations[mode];
+        updateUI();
+    }
+
+    function advanceQuest() {
+        state.questIndex = Math.min(quests.length - 1, state.questIndex + 1);
+        document.getElementById('quest-title').innerText = quests[state.questIndex].title;
+        document.getElementById('quest-desc').innerText = quests[state.questIndex].desc;
+        
+        // クエスト別の自動モード切り替え
+        if (state.questIndex === 1) {
+            setMode('reinforce-pos');
+            // ランプ初期化
+            document.getElementById('signal-lamp').style.backgroundColor = '#d1d5db';
+        } else if (state.questIndex === 2) {
+            setMode('reinforce-neg');
+        }
+    }
+
+    function resetLab() {
+        state.learningLevel = 0;
+        state.leverPressCount = 0;
+        state.isShockActive = false;
+        state.hasFood = false;
+        state.questIndex = 0;
+        state.timeline = [0];
+        state.cumPresses = [0];
+        state.secondsElapsed = 0;
+        state.ratX = 150;
+        state.signalActive = false;
+        
+        document.getElementById('quest-title').innerText = quests[0].title;
+        document.getElementById('quest-desc').innerText = quests[0].desc;
+        document.getElementById('signal-lamp').style.backgroundColor = '#d1d5db';
+        
+        setMode('reinforce-pos');
+        triggerShock(false);
+        removeFood();
+        updateUI();
+
+        skinnerChart.data.labels = state.timeline;
+        skinnerChart.data.datasets[0].data = state.cumPresses;
+        skinnerChart.update();
+    }
+
+    function switchTab(tab) {
+        const lab = document.getElementById('section-lab');
+        const quiz = document.getElementById('section-quiz');
+        const tabLab = document.getElementById('tab-lab');
+        const tabQuiz = document.getElementById('tab-quiz');
+
+        if (tab === 'lab') {
+            lab.classList.remove('hidden-section');
+            quiz.classList.add('hidden-section');
+            tabLab.classList.replace('bg-white', 'bg-emerald-500');
+            tabLab.classList.replace('text-emerald-500', 'text-white');
+            tabQuiz.classList.replace('bg-emerald-500', 'bg-white');
+            tabQuiz.classList.replace('text-white', 'text-emerald-500');
+        } else {
+            lab.classList.add('hidden-section');
+            quiz.classList.remove('hidden-section');
+            tabQuiz.classList.replace('bg-white', 'bg-emerald-500');
+            tabQuiz.classList.replace('text-emerald-500', 'text-white');
+            tabLab.classList.replace('bg-emerald-500', 'bg-white');
+            tabLab.classList.replace('text-white', 'text-emerald-500');
+        }
+    }
+
+    const quizData = [
+        { q: "テストで良い点を取ったら、お小遣いをもらえた。嬉しくて、次ももっと勉強するようになった。", a: "reinforce-pos", msg: "正解！「お小遣い（嬉しいこと）」がプラスされて、勉強する行動が増えたので「正の強化」です。" },
+        { q: "車に乗ってシートベルトを締めたら、うるさかった警告音が消えた。次からは乗ってすぐに締めるようになった。", a: "reinforce-neg", msg: "正解！「うるさい音（嫌なこと）」が消えたことで、シートベルトを締める行動が増えたので「負の強化」です。" },
+        { q: "ストーブに興味本位で触ったら、とても熱くて痛い思いをした。それ以降、絶対に触らなくなった。", a: "punish-pos", msg: "正解！「熱い・痛い（嫌なこと）」が発生したことで、触る行動が減ったので「正の罰」です。" },
+        { q: "授業中に騒いで遊んでいたら、楽しみにしていた休み時間を削られてしまった。それ以降、騒がなくなった。", a: "punish-neg", msg: "正解！「休み時間（嬉しいこと）」が没収されたことで、騒ぐ行動が減ったので「負の罰」です。" }
+    ];
+    let currentQuizIndex = 0;
+
+    function answerQuiz(userAnswer) {
+        const quiz = quizData[currentQuizIndex];
+        const feedback = document.getElementById('quiz-feedback');
+        const nextBtn = document.getElementById('btn-next-quiz');
+
+        feedback.classList.remove('opacity-0');
+        if (userAnswer === quiz.a) {
+            feedback.innerHTML = "🎉 <strong>大正解！</strong><br>" + quiz.msg;
+            feedback.className = "mt-6 text-sm font-bold text-green-700 bg-green-100 p-4 rounded-xl border border-green-300";
+        } else {
+            feedback.innerHTML = "😢 <strong>おしい！違うよ</strong><br>" + quiz.msg;
+            feedback.className = "mt-6 text-sm font-bold text-red-700 bg-red-100 p-4 rounded-xl border border-red-300";
+        }
+        nextBtn.classList.remove('hidden');
+    }
+
+    function loadNextQuiz() {
+        currentQuizIndex = (currentQuizIndex + 1) % quizData.length;
+        document.getElementById('quiz-question').innerText = quizData[currentQuizIndex].q;
+        
+        const feedback = document.getElementById('quiz-feedback');
+        feedback.classList.add('opacity-0');
+        feedback.className = "mt-6 text-md font-bold opacity-0 transition-all duration-300 p-4 rounded-xl";
+        document.getElementById('btn-next-quiz').classList.add('hidden');
+    }
+</script>
+</body>
+</html>
