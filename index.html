@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>パブロフの犬シミュレーター</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap');
+        body {
+            font-family: 'M PLUS Rounded 1c', sans-serif;
+            background-color: #fdfaf6;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+        .dog-bounce {
+            animation: bounce 0.5s infinite alternate;
+        }
+        @keyframes bounce {
+            from { transform: translateY(0); }
+            to { transform: translateY(-10px); }
+        }
+        .hidden-section {
+            display: none;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+<!-- Chosen Palette: Warm & Calm (Cream, Soft Brown, Sky Blue) -->
+<!-- Application Structure Plan: 
+    1. Introduction: Setting the stage for the experiment.
+    2. Interactive Simulator (The Lab): Central piece where users interact with the "Dog" to perform the Pavlov experiment. It uses a state-based logic to track "Learning Progress".
+    3. Terminology Guide: A dynamic table that highlights terms based on the simulator's state to bridge experience and academic terms.
+    4. Learning Curve Graph: A Chart.js visualization to show the 'Conditioning' progress visually.
+    5. Daily Life Quiz: A concluding interactive section to apply the concepts to real-world scenarios.
+    WHY: This flow moves from direct experience (Simulation) to formalization (Terminology) to analysis (Data) and finally application (Quiz), which is ideal for middle school learning.
+-->
+<!-- Visualization & Content Choices: 
+    - Simulation: Emoji and CSS animations for the dog to create emotional connection without SVGs.
+    - Progress Bar: Simple HTML/CSS for the Saliva meter (Real-time feedback).
+    - Chart.js: Line chart to show 'Association Strength' over time (Change over time goal).
+    - Quiz: Button-based interaction for immediate feedback.
+    - Confirming NO SVG/Mermaid.
+-->
+<!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+<div class="max-w-4xl mx-auto px-4 py-8">
+    <!-- Header -->
+    <header class="text-center mb-10">
+        <h1 class="text-3xl md:text-4xl font-bold text-orange-600 mb-2">パブロフの犬シミュレーター</h1>
+        <p class="text-gray-600 italic">〜 音とエサの不思議な実験を体験しよう 〜</p>
+    </header>
+
+    <!-- Main Navigation -->
+    <nav class="flex justify-center gap-4 mb-8">
+        <button onclick="switchTab('lab')" id="tab-lab" class="px-6 py-2 rounded-full bg-orange-500 text-white font-bold shadow-md transition hover:bg-orange-600">実験ラボ</button>
+        <button onclick="switchTab('quiz')" id="tab-quiz" class="px-6 py-2 rounded-full bg-white text-orange-500 font-bold border-2 border-orange-500 shadow-sm transition hover:bg-orange-50">日常クイズ</button>
+    </nav>
+
+    <!-- Section: Lab -->
+    <div id="section-lab" class="space-y-8">
+        <div class="bg-white rounded-3xl p-6 md:p-8 shadow-xl border-4 border-orange-100">
+            <h2 class="text-xl font-bold mb-4 flex items-center gap-2 text-orange-700">
+                <span>🧪</span> 実験クエスト: <span id="quest-title">まずはエサをあげてみよう！</span>
+            </h2>
+            <p id="quest-desc" class="text-gray-700 mb-6 bg-orange-50 p-4 rounded-xl border-l-4 border-orange-400">
+                「エサをあげる」ボタンを押して、犬の様子を観察してみてね。
+            </p>
+
+            <div class="flex flex-col md:flex-row items-center justify-around gap-8 py-8">
+                <!-- Dog Visual -->
+                <div class="relative text-center">
+                    <div id="dog-emoji" class="text-9xl mb-4 transition-all duration-300">🐕</div>
+                    <div id="action-effect" class="absolute -top-4 -right-4 text-4xl opacity-0 transition-opacity">✨</div>
+                    
+                    <!-- Saliva Meter -->
+                    <div class="w-48 bg-gray-200 rounded-full h-6 overflow-hidden border-2 border-gray-300 mx-auto">
+                        <div id="saliva-bar" class="bg-blue-300 h-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                    <p class="text-sm font-bold mt-2 text-blue-600">唾液（ヨダレ）ゲージ</p>
+                </div>
+
+                <!-- Controls -->
+                <div class="flex flex-col gap-4 w-full md:w-64">
+                    <button onclick="ringBell()" class="group relative flex items-center justify-center gap-2 bg-sky-100 hover:bg-sky-200 text-sky-700 font-bold py-4 px-6 rounded-2xl border-b-4 border-sky-300 transition-all active:border-b-0 active:translate-y-1">
+                        <span class="text-2xl">🔔</span> ベルを鳴らす
+                    </button>
+                    <button onclick="giveFood()" class="group relative flex items-center justify-center gap-2 bg-red-100 hover:bg-red-200 text-red-700 font-bold py-4 px-6 rounded-2xl border-b-4 border-red-300 transition-all active:border-b-0 active:translate-y-1">
+                        <span class="text-2xl">🍖</span> エサをあげる
+                    </button>
+                    <button onclick="resetExperiment()" class="mt-4 text-gray-400 text-sm hover:text-gray-600 underline">
+                        実験をリセットする
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Terminology Table -->
+        <div class="bg-white rounded-3xl p-6 shadow-lg">
+            <h3 class="text-xl font-bold mb-4">学べる専門用語</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-50 text-gray-500 text-sm">
+                            <th class="p-3 border-b">実験の要素</th>
+                            <th class="p-3 border-b">専門用語</th>
+                            <th class="p-3 border-b">中学生向け解説</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-sm md:text-base">
+                        <tr id="term-us" class="transition-colors">
+                            <td class="p-3 border-b font-bold">🍖 エサ</td>
+                            <td class="p-3 border-b text-orange-600 font-bold">無条件刺激 (US)</td>
+                            <td class="p-3 border-b">トレーニングしなくても、絶対に体が反応しちゃうもの。</td>
+                        </tr>
+                        <tr id="term-ur" class="transition-colors">
+                            <td class="p-3 border-b font-bold">🤤 ヨダレ(エサ時)</td>
+                            <td class="p-3 border-b text-orange-600 font-bold">無条件反応 (UR)</td>
+                            <td class="p-3 border-b">頭で考える前に、勝手に体がやっちゃう自然な反応。</td>
+                        </tr>
+                        <tr id="term-cs" class="transition-colors">
+                            <td class="p-3 border-b font-bold">🔔 ベルの音</td>
+                            <td class="p-3 border-b text-sky-600 font-bold">条件刺激 (CS)</td>
+                            <td class="p-3 border-b">練習のあとで特別な意味を持つようになった合図。</td>
+                        </tr>
+                        <tr id="term-cr" class="transition-colors">
+                            <td class="p-3 border-b font-bold">✨ ヨダレ(音のみ)</td>
+                            <td class="p-3 border-b text-sky-600 font-bold">条件反応 (CR)</td>
+                            <td class="p-3 border-b">合図を聞いただけで、体が準備しちゃう学習された反応。</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Progress Chart -->
+        <div class="bg-white rounded-3xl p-6 shadow-lg">
+            <h3 class="text-xl font-bold mb-2 text-center">学習の強さグラフ</h3>
+            <p class="text-center text-xs text-gray-500 mb-4">ベルとエサの結びつき（条件づけ）の強さを示します</p>
+            <div class="chart-container">
+                <canvas id="learningChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section: Quiz -->
+    <div id="section-quiz" class="hidden-section space-y-8">
+        <div class="bg-white rounded-3xl p-8 shadow-xl text-center">
+            <h2 class="text-2xl font-bold mb-6">これって「パブロフの犬」？クイズ</h2>
+            <div id="quiz-container" class="bg-yellow-50 p-8 rounded-2xl border-2 border-dashed border-yellow-300 min-h-[200px] flex flex-col justify-center items-center">
+                <p id="quiz-question" class="text-xl font-bold mb-8">梅干しの写真をみただけで、口が酸っぱくなってヨダレが出る</p>
+                <div class="flex gap-4">
+                    <button onclick="answerQuiz(true)" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition">Yes! (そうだと思う)</button>
+                    <button onclick="answerQuiz(false)" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-3 px-8 rounded-full shadow-lg transition">No (違うと思う)</button>
+                </div>
+            </div>
+            <div id="quiz-feedback" class="mt-6 text-lg font-bold opacity-0 transition-opacity"></div>
+            <button id="next-quiz" onclick="loadNextQuiz()" class="mt-4 hidden bg-orange-100 text-orange-700 py-2 px-6 rounded-lg font-bold">次の問題へ</button>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-12 text-center text-gray-400 text-sm">
+        <p>&copy; 2024 パブロフの犬学習プロジェクト</p>
+    </footer>
+</div>
+
+<script>
+    // State Management
+    let state = {
+        learningLevel: 0, // 0 to 100
+        lastBellTime: 0,
+        questIndex: 0,
+        learningHistory: [0],
+        labels: ['最初']
+    };
+
+    const quests = [
+        { title: "まずはエサをあげてみよう！", desc: "「エサをあげる」を押して、犬の様子を観察してみてね。" },
+        { title: "ベルだけを鳴らしてみよう！", desc: "「ベルを鳴らす」を押してみて。まだ何も起きないかな？" },
+        { title: "『ベルの直後にエサ』を繰り返そう！", desc: "ベルを鳴らしたあと、すぐに（2秒以内）エサをあげて。これを数回繰り返して「学習」させよう！" },
+        { title: "ベルだけでヨダレが出るか確認！", desc: "エサをあげずに「ベル」だけ鳴らしてみて。学習が成功していれば...？" }
+    ];
+
+    const quizData = [
+        { q: "梅干しの写真をみただけで、口が酸っぱくなってヨダレが出る", a: true, msg: "正解！「梅干しの写真」が条件刺激になってるよ。" },
+        { q: "スマホの通知音が『ピコン』と鳴ると、ついつい画面を見ちゃう", a: true, msg: "正解！通知音が「何か面白いことがあるかも」という条件刺激なんだ。" },
+        { q: "テストで100点を取ったら、お小遣いがもらえて嬉しかった", a: false, msg: "これは「道具的条件づけ」。自分の行動（勉強）に対して報酬が出るタイプだよ。" },
+        { q: "レモンの匂いを嗅いだら、唾液が出てきた", a: true, msg: "正解！匂いと味の結びつきによる古典的条件づけだね。" }
+    ];
+    let currentQuizIndex = 0;
+
+    // Chart Initialization
+    const ctx = document.getElementById('learningChart').getContext('2d');
+    const learningChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: state.labels,
+            datasets: [{
+                label: '学習の強さ',
+                data: state.learningHistory,
+                borderColor: '#0ea5e9',
+                backgroundColor: 'rgba(14, 165, 233, 0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { min: 0, max: 100, ticks: { callback: v => v + '%' } }
+            },
+            plugins: { legend: { display: false } }
+        }
+    });
+
+    // Core Logic
+    function ringBell() {
+        state.lastBellTime = Date.now();
+        const dog = document.getElementById('dog-emoji');
+        const effect = document.getElementById('action-effect');
+        
+        dog.innerText = '🐕❓';
+        effect.innerText = '🔔';
+        effect.classList.remove('opacity-0');
+        
+        // Response based on learning
+        const salivaLevel = state.learningLevel;
+        updateSaliva(salivaLevel);
+
+        if (state.learningLevel > 70) {
+            dog.innerText = '🐕✨';
+            highlightTerm('term-cr');
+        } else {
+            highlightTerm('term-cs');
+        }
+
+        setTimeout(() => {
+            effect.classList.add('opacity-0');
+            if (state.questIndex === 1) nextQuest();
+        }, 1000);
+        
+        updateChart();
+    }
+
+    function giveFood() {
+        const now = Date.now();
+        const dog = document.getElementById('dog-emoji');
+        const effect = document.getElementById('action-effect');
+        
+        dog.innerText = '🐕🤤';
+        dog.classList.add('dog-bounce');
+        effect.innerText = '🍖';
+        effect.classList.remove('opacity-0');
+        
+        updateSaliva(100);
+        highlightTerm('term-us');
+        highlightTerm('term-ur');
+
+        // Check for pairing (Conditioning)
+        if (now - state.lastBellTime < 2500 && state.lastBellTime !== 0) {
+            state.learningLevel = Math.min(100, state.learningLevel + 25);
+            updateChart();
+        }
+
+        setTimeout(() => {
+            dog.classList.remove('dog-bounce');
+            dog.innerText = '🐕';
+            effect.classList.add('opacity-0');
+            if (state.questIndex === 0) nextQuest();
+            if (state.questIndex === 2 && state.learningLevel >= 75) nextQuest();
+        }, 1500);
+    }
+
+    function updateSaliva(level) {
+        document.getElementById('saliva-bar').style.width = level + '%';
+    }
+
+    function highlightTerm(id) {
+        const row = document.getElementById(id);
+        row.classList.add('bg-yellow-100');
+        setTimeout(() => row.classList.remove('bg-yellow-100'), 2000);
+    }
+
+    function updateChart() {
+        state.learningHistory.push(state.learningLevel);
+        state.labels.push(state.learningHistory.length - 1 + '回目');
+        learningChart.update();
+    }
+
+    function nextQuest() {
+        state.questIndex = Math.min(quests.length - 1, state.questIndex + 1);
+        document.getElementById('quest-title').innerText = quests[state.questIndex].title;
+        document.getElementById('quest-desc').innerText = quests[state.questIndex].desc;
+    }
+
+    function resetExperiment() {
+        state.learningLevel = 0;
+        state.lastBellTime = 0;
+        state.questIndex = 0;
+        state.learningHistory = [0];
+        state.labels = ['最初'];
+        updateSaliva(0);
+        document.getElementById('dog-emoji').innerText = '🐕';
+        nextQuest();
+        learningChart.data.labels = state.labels;
+        learningChart.data.datasets[0].data = state.learningHistory;
+        learningChart.update();
+    }
+
+    // UI & Navigation
+    function switchTab(tab) {
+        const lab = document.getElementById('section-lab');
+        const quiz = document.getElementById('section-quiz');
+        const tabLab = document.getElementById('tab-lab');
+        const tabQuiz = document.getElementById('tab-quiz');
+
+        if (tab === 'lab') {
+            lab.classList.remove('hidden-section');
+            quiz.classList.add('hidden-section');
+            tabLab.classList.replace('bg-white', 'bg-orange-500');
+            tabLab.classList.replace('text-orange-500', 'text-white');
+            tabQuiz.classList.replace('bg-orange-500', 'bg-white');
+            tabQuiz.classList.replace('text-white', 'text-orange-500');
+        } else {
+            lab.classList.add('hidden-section');
+            quiz.classList.remove('hidden-section');
+            tabQuiz.classList.replace('bg-white', 'bg-orange-500');
+            tabQuiz.classList.replace('text-orange-500', 'text-white');
+            tabLab.classList.replace('bg-orange-500', 'bg-white');
+            tabLab.classList.replace('text-white', 'text-orange-500');
+        }
+    }
+
+    // Quiz Logic
+    function answerQuiz(userAnswer) {
+        const quiz = quizData[currentQuizIndex];
+        const feedback = document.getElementById('quiz-feedback');
+        const nextBtn = document.getElementById('next-quiz');
+
+        feedback.classList.remove('opacity-0');
+        if (userAnswer === quiz.a) {
+            feedback.innerText = "⭕ " + quiz.msg;
+            feedback.className = "mt-6 text-lg font-bold text-green-600";
+        } else {
+            feedback.innerText = "❌ おしい！実は... " + quiz.msg;
+            feedback.className = "mt-6 text-lg font-bold text-red-600";
+        }
+        nextBtn.classList.remove('hidden');
+    }
+
+    function loadNextQuiz() {
+        currentQuizIndex = (currentQuizIndex + 1) % quizData.length;
+        document.getElementById('quiz-question').innerText = quizData[currentQuizIndex].q;
+        document.getElementById('quiz-feedback').classList.add('opacity-0');
+        document.getElementById('next-quiz').classList.add('hidden');
+    }
+</script>
+</body>
+</html>
