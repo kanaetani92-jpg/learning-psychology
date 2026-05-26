@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学習性無力感シミュレーター</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- MathJax for Beautiful LaTeX Rendering -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap');
+        body {
+            font-family: 'M PLUS Rounded 1c', sans-serif;
+            background-color: #f1f5f9;
+        }
+        /* シャトルボックスのレイアウト */
+        .shuttle-box {
+            position: relative;
+            background: #cbd5e1;
+            border: 6px solid #475569;
+            border-radius: 1.5rem;
+            height: 240px;
+            overflow: hidden;
+        }
+        .dog-sprite {
+            transition: all 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
+            position: absolute;
+            font-size: 3.5rem;
+            z-index: 20;
+        }
+        .barrier {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 12px;
+            background-color: #64748b;
+            border-top-left-radius: 4px;
+            border-top-right-radius: 4px;
+            transition: height 0.5s ease;
+            z-index: 10;
+        }
+        .shock-floor-active {
+            animation: electric-zap 0.15s infinite;
+        }
+        @keyframes electric-zap {
+            0% { background-color: #fef08a; }
+            50% { background-color: #fecaca; }
+            100% { background-color: #fef08a; }
+        }
+        .dog-shivering {
+            animation: shiver 0.1s infinite;
+        }
+        @keyframes shiver {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(0px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(2px, 1px) rotate(-1deg); }
+            85% { transform: translate(-1px, -1px) rotate(1deg); }
+            100% { transform: translate(1px, -2px) rotate(0deg); }
+        }
+    </style>
+</head>
+<body class="text-slate-800 flex flex-col min-h-screen">
+
+<div class="max-w-5xl w-full mx-auto px-4 py-6 md:py-8 flex-grow">
+    
+    <!-- メニューに戻るボタン -->
+    <div class="mb-6">
+        <a href="index.html" class="inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-indigo-600 transition bg-white py-2 px-4 rounded-xl shadow-sm border border-slate-100">
+            <i class="fa-solid fa-chevron-left text-xs"></i>
+            <i class="fa-solid fa-house"></i>
+            <span>メニューに戻る</span>
+        </a>
+    </div>
+
+    <!-- Header -->
+    <header class="text-center mb-8">
+        <span class="inline-block bg-indigo-100 text-indigo-700 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider mb-2">認知とモチベーションの心理学</span>
+        <h1 class="text-3xl md:text-4xl font-bold text-indigo-600 mb-2">学習性無力感シミュレーター</h1>
+        <p class="text-slate-600 italic">〜「どうせ無理」はどのように学習され、どう克服するのか？ 〜</p>
+    </header>
+
+    <!-- タブナビゲーション -->
+    <nav class="flex justify-center gap-2 md:gap-4 mb-8">
+        <button onclick="switchTab('lab')" id="tab-lab" class="px-4 py-2 md:px-6 md:py-2.5 rounded-full bg-indigo-600 text-white font-bold shadow-md transition hover:bg-indigo-700 text-sm">
+            <i class="fa-solid fa-flask mr-1"></i> 実験室（無力感の学習）
+        </button>
+        <button onclick="switchTab('therapy')" id="tab-therapy" class="px-4 py-2 md:px-6 md:py-2.5 rounded-full bg-white text-indigo-600 font-bold border border-indigo-200 shadow-sm transition hover:bg-indigo-50 text-sm">
+            <i class="fa-solid fa-heart-pulse mr-1"></i> 克服トレーニング
+        </button>
+        <button onclick="switchTab('quiz')" id="tab-quiz" class="px-4 py-2 md:px-6 md:py-2.5 rounded-full bg-white text-indigo-600 font-bold border border-indigo-200 shadow-sm transition hover:bg-indigo-50 text-sm">
+            <i class="fa-solid fa-circle-question mr-1"></i> 帰属スタイルクイズ
+        </button>
+    </nav>
+
+    <!-- 1. 実験室（無力感の学習）セクション -->
+    <div id="section-lab" class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <!-- 左側：実験コントロールとアニメーション -->
+        <div class="lg:col-span-7 space-y-6">
+            <!-- クエスト説明 -->
+            <div class="bg-white rounded-2xl p-5 shadow-sm border-l-4 border-indigo-500">
+                <h2 class="text-md font-bold text-indigo-800 flex items-center gap-2">
+                    <span class="text-xl">🐕</span> 実験フェーズ: <span id="lab-phase-title">【第1段階：拘束室でのショック訓練】</span>
+                </h2>
+                <p id="lab-phase-desc" class="text-sm text-slate-600 mt-2 leading-relaxed">
+                    犬たちのグループを選択し、ショックをスタートしてみましょう。グループAは自力で止められますが、グループBはどんなにあがいても電気を止められない過酷な訓練を経験します。
+                </p>
+            </div>
+
+            <!-- アニメーション表示エリア -->
+            <div class="bg-white rounded-3xl p-6 shadow-md border border-slate-100">
+                <div class="flex justify-between items-center mb-4">
+                    <span class="text-xs font-black px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg">実験モデル：セリグマンのシャトルボックス</span>
+                    <!-- 警告灯 -->
+                    <div class="flex items-center gap-1.5 bg-red-50 text-red-600 px-3 py-1 rounded-full text-xs font-bold border border-red-200">
+                        <i id="warning-siren" class="fa-solid fa-triangle-exclamation"></i>
+                        <span id="warning-text">ショック停止中</span>
+                    </div>
+                </div>
+
+                <!-- シャトルボックス本体 -->
+                <div class="shuttle-box" id="experiment-shuttle-box">
+                    <!-- 左側の危険エリア -->
+                    <div id="left-floor" class="absolute left-0 top-0 bottom-0 w-1/2 transition-colors duration-200 flex items-end justify-center pb-2">
+                        <span class="text-[10px] font-bold text-slate-400 bg-slate-800/10 px-2 py-0.5 rounded-full">電気グリッド床</span>
+                    </div>
+                    <!-- 右側の安全エリア -->
+                    <div id="right-floor" class="absolute right-0 top-0 bottom-0 w-1/2 bg-emerald-50 border-l border-dashed border-emerald-300 flex items-end justify-center pb-2">
+                        <span class="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">安全な床</span>
+                    </div>
+
+                    <!-- 仕切り 🚧 -->
+                    <div id="shuttle-barrier" class="barrier" style="height: 60px;"></div>
+
+                    <!-- 犬 🐕 -->
+                    <div id="lab-dog" class="dog-sprite" style="bottom: 16px; left: 15%;">🐕</div>
+                    <!-- パネルボタン (第1段階で使用) -->
+                    <div id="panel-switch" class="absolute top-1/2 left-[30%] transform -translate-y-1/2 hidden flex-col items-center gap-1">
+                        <button onclick="pressPanel()" class="bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold py-2 px-3 rounded-lg text-xs shadow border-b-4 border-amber-600 active:border-b-0 active:translate-y-0.5 transition-all">
+                            <i class="fa-solid fa-hand-point-up"></i> パネルを押す
+                        </button>
+                        <span class="text-[9px] font-bold text-slate-500 bg-white/80 px-1 rounded" id="panel-status">停止用パネル</span>
+                    </div>
+
+                    <!-- ビリビリ⚡エフェクト -->
+                    <div id="shock-effect" class="absolute left-[15%] bottom-16 text-3xl opacity-0 transition-opacity pointer-events-none text-yellow-400 animate-pulse">⚡</div>
+
+                    <!-- 犬のセリフ吹き出し -->
+                    <div id="dog-bubble" class="absolute bg-white text-slate-700 text-[10px] font-black px-2.5 py-1 rounded-xl shadow-md border border-slate-200 opacity-0 transition-all duration-300" style="bottom: 80px; left: 15%;">
+                        うろうろ
+                    </div>
+                </div>
+
+                <!-- 犬の状態表示 -->
+                <div class="mt-4 bg-slate-50 p-3 rounded-xl flex justify-between text-xs font-bold border border-slate-100">
+                    <div>犬の心理状態: <span id="dog-mood-text" class="text-slate-600">おだやか</span></div>
+                    <div>無力学習レベル: <span id="helplessness-gauge-text" class="text-indigo-600">0%</span></div>
+                </div>
+            </div>
+
+            <!-- 解説パーツ：行動と結果の随伴性 -->
+            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+                <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 text-center">条件づけ学習の比較</h3>
+                <div class="grid grid-cols-3 gap-3 text-center text-xs">
+                    <div class="p-3 bg-teal-50/50 border border-teal-100 rounded-xl flex flex-col justify-between">
+                        <div class="font-bold text-teal-700 mb-1">【グループA】</div>
+                        <div class="text-[11px] text-slate-600 leading-normal">
+                            <div class="my-1 text-center font-bold text-teal-600">$\text{行動} \rightarrow \text{良い結果}$</div>
+                            パネルを「押せば」ショックが「止まる」を学習。
+                        </div>
+                    </div>
+                    <div class="p-3 bg-rose-50/50 border border-rose-100 rounded-xl flex flex-col justify-between">
+                        <div class="font-bold text-rose-700 mb-1">【グループB】</div>
+                        <div class="text-[11px] text-slate-600 leading-normal">
+                            <div class="my-1 text-center font-bold text-rose-600">$\text{行動} \rightarrow \text{変化なし}$</div>
+                            どんなにあがいてもショックを「止められない」を学習。
+                        </div>
+                    </div>
+                    <div class="p-3 bg-slate-50 border border-slate-100 rounded-xl flex flex-col justify-between">
+                        <div class="font-bold text-slate-600 mb-1">【グループC】</div>
+                        <div class="text-[11px] text-slate-600 leading-normal">
+                            <div class="my-1 text-center font-bold text-slate-500">$\text{行動不要}$</div>
+                            最初から不快なショック自体を全く受けない。
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右側：実験のフェーズ切替とグラフ -->
+        <div class="lg:col-span-5 space-y-6">
+            <!-- グループ選択 -->
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                <h3 class="font-bold text-slate-700 text-sm mb-3 flex items-center gap-1.5">
+                    <i class="fa-solid fa-users text-indigo-500"></i> 実験犬のグループ選択
+                </h3>
+                <div class="grid grid-cols-3 gap-2">
+                    <button onclick="selectGroup('A')" id="btn-group-A" class="py-2.5 rounded-xl text-xs font-bold border-2 border-indigo-500 bg-indigo-50 text-indigo-700 transition">
+                        グループA<br><span class="text-[9px] font-normal">回避可能</span>
+                    </button>
+                    <button onclick="selectGroup('B')" id="btn-group-B" class="py-2.5 rounded-xl text-xs font-bold border-2 border-gray-100 text-slate-400 hover:bg-slate-50 transition">
+                        グループB<br><span class="text-[9px] font-normal">回避不能</span>
+                    </button>
+                    <button onclick="selectGroup('C')" id="btn-group-C" class="py-2.5 rounded-xl text-xs font-bold border-2 border-gray-100 text-slate-400 hover:bg-slate-50 transition">
+                        グループC<br><span class="text-[9px] font-normal">ショックなし</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- アクション操作パネル -->
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                <h3 class="font-bold text-slate-700 text-sm mb-3">⚡ 実験操作</h3>
+                <div class="flex gap-3">
+                    <button onclick="triggerShockExperiment()" id="btn-shock-action" class="flex-grow py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-bolt"></i> 電気ショックを開始
+                    </button>
+                    <button onclick="changePhase()" id="btn-phase-change" class="py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-md transition">
+                        次の段階へ ➡️
+                    </button>
+                </div>
+                <!-- 補足案内 -->
+                <div class="mt-3 p-3 bg-slate-50 rounded-xl text-[10px] text-slate-500 leading-relaxed" id="op-instruction">
+                    <strong>現在のタスク:</strong> グループAかBを選んで電気ショックを与えましょう。グループAはパネルを押せば数秒で回避を学びます。Bはパネルが効かずショックが長続きします。3〜4回ショックを流したら「次の段階」へ進みましょう。
+                </div>
+            </div>
+
+            <!-- 折れ線・棒グラフ -->
+            <div class="bg-white rounded-2xl p-6 shadow-md border border-slate-100">
+                <h3 class="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider text-center">シャトルボックスでの脱出時間（テスト結果）</h3>
+                <div class="h-44 relative">
+                    <canvas id="helplessnessChart"></canvas>
+                </div>
+                <div class="mt-2 text-center text-[10px] text-slate-500 leading-relaxed bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                    注：回避時間 ($t \text{ [s]}$) が短いほど進んで脱出できています。Bグループは無力感が学習されているため仕切りを越えられず、時間切れ ($15\text{ s}$) になってしまいます。
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 克服トレーニング（脱出セラピー）セクション -->
+    <div id="section-therapy" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div class="lg:col-span-7 space-y-6">
+            <!-- クエスト説明 -->
+            <div class="bg-white rounded-2xl p-5 shadow-sm border-l-4 border-emerald-500">
+                <h2 class="text-md font-bold text-emerald-800 flex items-center gap-2">
+                    <span class="text-xl">❤️</span> セラピー：無力感に陥った犬を救え！
+                </h2>
+                <p class="text-sm text-slate-600 mt-2 leading-relaxed">
+                    「何をやっても無駄だ」と諦め、仕切りを越えるのを諦めてしまったグループBの犬。エサを置いたり仕切りを低くする「スモールステップ（小さな成功体験）」を繰り返して、**自己効力感**を再学習させましょう！
+                </p>
+            </div>
+
+            <!-- セラピーシャトルボックス -->
+            <div class="bg-white rounded-3xl p-6 shadow-md border border-slate-100">
+                <div class="shuttle-box" id="therapy-shuttle-box">
+                    <!-- 左側の危険エリア -->
+                    <div id="t-left-floor" class="absolute left-0 top-0 bottom-0 w-1/2 transition-colors duration-200 flex items-end justify-center pb-2">
+                        <span class="text-[10px] font-bold text-slate-400 bg-slate-800/10 px-2 py-0.5 rounded-full">電気グリッド床</span>
+                    </div>
+                    <!-- 右側の安全エリア -->
+                    <div id="t-right-floor" class="absolute right-0 top-0 bottom-0 w-1/2 bg-emerald-50 border-l border-dashed border-emerald-300 flex items-end justify-center pb-2">
+                        <span class="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">安全な床</span>
+                    </div>
+
+                    <!-- 仕切り (可変) 🚧 -->
+                    <div id="therapy-barrier" class="barrier" style="height: 60px;"></div>
+
+                    <!-- 犬 🐕 -->
+                    <div id="therapy-dog" class="dog-sprite" style="bottom: 16px; left: 15%;">🐕😢</div>
+
+                    <!-- 置かれるご褒美（エサ 🦴） -->
+                    <div id="therapy-food" class="absolute bottom-4 right-1/4 text-3xl opacity-0 transition-all duration-300 pointer-events-none">🦴</div>
+
+                    <!-- 犬のセリフ吹き出し -->
+                    <div id="t-dog-bubble" class="absolute bg-white text-slate-700 text-[10px] font-black px-2.5 py-1 rounded-xl shadow-md border border-slate-200 opacity-0 transition-all duration-300" style="bottom: 80px; left: 15%;">
+                        どうせ無理...
+                    </div>
+                </div>
+
+                <!-- ステータスバー -->
+                <div class="mt-4 bg-slate-50 p-4 rounded-xl space-y-3 border border-slate-100">
+                    <div>
+                        <div class="flex justify-between text-xs font-bold mb-2">
+                            <span>脳の回復：$\text{自己効力感 (Self-efficacy)}$（やればできる感）</span>
+                            <span id="therapy-progress-text" class="text-emerald-600">0%</span>
+                        </div>
+                        <div class="w-full bg-slate-200 h-3 rounded-full overflow-hidden">
+                            <div id="therapy-progress-bar" class="bg-emerald-500 h-full transition-all duration-300" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- セラピーコントロール -->
+        <div class="lg:col-span-5 space-y-6">
+            <!-- 脱出を促すアプローチ -->
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                <h3 class="font-bold text-slate-700 text-sm mb-3 flex items-center gap-1.5">
+                    <i class="fa-solid fa-puzzle-piece text-emerald-500"></i> 脱出を促すアプローチ
+                </h3>
+                <div class="space-y-3">
+                    <button onclick="applyTherapy('food')" class="w-full p-4 text-left border-2 border-slate-100 hover:border-emerald-300 rounded-xl transition flex gap-3 items-center bg-slate-50/50">
+                        <span class="text-2xl">🦴</span>
+                        <div>
+                            <span class="text-xs font-bold block text-slate-800">1. 安全ゾーンにご褒美のエサを置く</span>
+                            <span class="text-[10px] text-slate-500">魅力的な好子を提示して、自発的な行動意欲を誘う。</span>
+                        </div>
+                    </button>
+                    <button onclick="applyTherapy('barrier')" class="w-full p-4 text-left border-2 border-slate-100 hover:border-emerald-300 rounded-xl transition flex gap-3 items-center bg-slate-50/50">
+                        <span class="text-2xl">🚧</span>
+                        <div>
+                            <span class="text-xs font-bold block text-slate-800">2. 仕切りを低くする（スモールステップ）</span>
+                            <span class="text-[10px] text-slate-500">「これくらいなら越えられる」と思わせるためにハードルを下げる。</span>
+                        </div>
+                    </button>
+                    <button onclick="applyTherapy('force')" class="w-full p-4 text-left border-2 border-slate-100 hover:border-emerald-300 rounded-xl transition flex gap-3 items-center bg-slate-50/50">
+                        <span class="text-2xl">🤝</span>
+                        <div>
+                            <span class="text-xs font-bold block text-slate-800">3. 体を抱えて仕切りを越えさせる</span>
+                            <span class="text-[10px] text-slate-500">強制的にでも一度「仕切りを越えて逃げ延びる」という成功体験を与える。</span>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- トレーニングの重要性解説 -->
+            <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-6 text-xs text-emerald-800 space-y-2">
+                <h4 class="font-bold"><i class="fa-solid fa-graduation-cap"></i> 心理学の治療：$\text{自己効力感}$ の回復</h4>
+                <p class="leading-relaxed">
+                    学習性無力感を治療するには、本人が<strong>「自分の行動（レバーを押す、飛び越える）によって、確かに状況が好転した（不快から逃れられた）」</strong>という経験を取り戻す必要があります。
+                </p>
+                <p class="leading-relaxed">
+                    最初は小さな一歩（スモールステップ）から始め、自力または介助で少しずつ「行動と結果のつながり（随伴性）」を再確認させることが、モチベーション復活への最短ルートです。
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. 帰属スタイルクイズ セクション -->
+    <div id="section-quiz" class="hidden max-w-2xl mx-auto space-y-6">
+        <div class="bg-white rounded-3xl p-8 shadow-xl text-center border border-slate-100">
+            <h2 class="text-2xl font-bold mb-2 text-indigo-600">帰属スタイル（考え方のくせ）クイズ</h2>
+            <p class="text-sm text-slate-500 mb-6">目の前の「悪い出来事」に対して、どんな風に原因を捉える？楽観的（無力感になりにくい）か悲観的（無力感になりやすい）かを仕分けよう！</p>
+            
+            <div id="quiz-box" class="bg-indigo-50/50 p-8 rounded-2xl border-2 border-dashed border-indigo-300 min-h-[180px] flex flex-col justify-center items-center">
+                <p id="quiz-question" class="text-md md:text-lg font-bold mb-6 text-slate-800">テストで赤点を取ったとき、「私が頭が悪いからだ。もう一生ダメだ」と思う。</p>
+                
+                <div class="grid grid-cols-2 gap-3 w-full max-w-md">
+                    <button onclick="answerQuiz('pessimistic')" class="bg-white hover:bg-indigo-100 text-slate-700 border border-indigo-200 font-bold py-2.5 px-4 rounded-xl text-xs transition">
+                        悲観的スタイル<br><span class="text-[9px] font-normal text-slate-400">（無力感を起こしやすい）</span>
+                    </button>
+                    <button onclick="answerQuiz('optimistic')" class="bg-white hover:bg-indigo-100 text-slate-700 border border-indigo-200 font-bold py-2.5 px-4 rounded-xl text-xs transition">
+                        楽観的スタイル<br><span class="text-[9px] font-normal text-slate-400">（無力感を起こしにくい）</span>
+                    </button>
+                </div>
+            </div>
+            <div id="quiz-feedback" class="mt-6 text-sm font-bold opacity-0 transition-all duration-300 p-4 rounded-xl"></div>
+            <button id="btn-next-quiz" onclick="loadNextQuiz()" class="mt-4 hidden bg-indigo-600 text-white hover:bg-indigo-700 py-2.5 px-6 rounded-lg font-bold text-sm transition">次の問題へ</button>
+        </div>
+    </div>
+</div>
+
+<!-- Footer -->
+<footer class="bg-slate-900 text-slate-400 text-center py-6 border-t border-slate-800 text-xs w-full mt-12">
+    <p>&copy; 条件づけ学習ラボ. All Rights Reserved.</p>
+</footer>
+
+<script>
+    // 状態管理
+    let state = {
+        selectedGroup: 'A',    // A, B, C
+        currentPhase: 1,       // 1 (拘束室), 2 (シャトルボックス)
+        isShockOn: false,
+        learningLevelA: 0,     // Aグループがパネル押しを学習する進行度
+        learningLevelB: 0,     // Bグループは常に0のまま（無力学習は裏で上昇）
+        helplessnessB: 0,      // Bグループの学習性無力感
+        shockTimer: null,
+        shockDuration: 0,
+        escapeTimes: {
+            A: 15,
+            B: 15,
+            C: 15
+        },
+        hasTested: {
+            A: false,
+            B: false,
+            C: false
+        },
+        therapyEfficacy: 0,    // 克服トレーニングの進行度 (0 to 100)
+        barrierHeight: 60,     // 克服時の仕切り高さ
+        hasTherapyFood: false,
+        secondsElapsed: 0
+    };
+
+    // クイズデータ
+    const quizData = [
+        { 
+            q: "定期テストの点数が悪かったとき、「自分がバカ（一生変わらない原因）だからだ」と考える。", 
+            a: "pessimistic", 
+            msg: "正解！自分自身の能力という「変えられない要因」のせいにする考え方は、無力感になりやすい『悲観的帰属スタイル』です。" 
+        },
+        { 
+            q: "試合で負けたとき、「今回の相手は強かった。でも練習方法を少し変えれば次は勝てるかも」と考える。", 
+            a: "optimistic", 
+            msg: "正解！やり方という「変えられる一時的な要因」のせいにするのは、次の行動意欲が湧く『楽観的帰属スタイル』です。" 
+        },
+        { 
+            q: "宿題が難しくて解けないとき、「どうせ頑張っても私には無理だ。最初からやめておこう」と考える。", 
+            a: "pessimistic", 
+            msg: "正解！「どうせ何をやっても無駄」と最初から諦めるのは典型的な『悲観的帰属スタイル』からくる無力感です。" 
+        },
+        { 
+            q: "友達と喧嘩したとき、「自分が悪かったところを謝って、今度から話し合い方を変えてみよう」と考える。", 
+            a: "optimistic", 
+            msg: "正解！原因を自分の今後の取り組み可能な行動に帰属させるのは、無力感の檻に陥らない『楽観的帰属スタイル』です。" 
+        }
+    ];
+    let currentQuizIndex = 0;
+
+    // Chart.js の初期化
+    const ctx = document.getElementById('helplessnessChart').getContext('2d');
+    const chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['グループA (回避可能)', 'グループB (回避不能)', 'グループC (ショックなし)'],
+            datasets: [{
+                label: '仕切りを飛び越えて回避する時間（秒）',
+                data: [0, 0, 0], // 初期の非テスト状態
+                backgroundColor: [
+                    'rgba(16, 185, 129, 0.7)',  // A: 緑
+                    'rgba(239, 68, 68, 0.7)',   // B: 赤
+                    'rgba(99, 102, 241, 0.7)'   // C: 紫
+                ],
+                borderColor: [
+                    '#10b981',
+                    '#ef4444',
+                    '#6366f1'
+                ],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    min: 0,
+                    max: 15,
+                    title: {
+                        display: true,
+                        text: '脱出にかかった秒数 (最大15秒)',
+                        font: { size: 10 }
+                    }
+                }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+
+    // グループ選択
+    function selectGroup(group) {
+        if (state.isShockOn) return; // ショック中は切り替え不可
+        state.selectedGroup = group;
+        
+        ['A', 'B', 'C'].forEach(g => {
+            const btn = document.getElementById('btn-group-' + g);
+            if (g === group) {
+                btn.className = "py-2.5 rounded-xl text-xs font-bold border-2 border-indigo-500 bg-indigo-50 text-indigo-700 transition text-center";
+            } else {
+                btn.className = "py-2.5 rounded-xl text-xs font-bold border-2 border-gray-100 text-slate-400 hover:bg-slate-50 transition text-center";
+            }
+        });
+
+        const dog = document.getElementById('lab-dog');
+        if (state.currentPhase === 1) {
+            // 第1段階では全員左端（拘束部屋）
+            dog.style.left = '15%';
+            dog.style.bottom = '16px';
+            dog.innerText = '🐕';
+        } else {
+            // 第2段階ではリセット位置
+            dog.style.left = '15%';
+            dog.innerText = '🐕❓';
+        }
+
+        updateUI();
+    }
+
+    // フェーズ切り替え（第1段階 ↔️ 第2段階）
+    function changePhase() {
+        if (state.isShockOn) stopShock();
+
+        const btn = document.getElementById('btn-phase-change');
+        const dog = document.getElementById('lab-dog');
+        const panel = document.getElementById('panel-switch');
+        const warning = document.getElementById('warning-text');
+
+        if (state.currentPhase === 1) {
+            // 第2段階（仕切り飛び越えテスト）へ移行
+            state.currentPhase = 2;
+            btn.innerText = "⏮️ 最初からやり直す";
+            document.getElementById('lab-phase-title').innerText = "【第2段階：低い仕切りのある脱出テスト】";
+            document.getElementById('lab-phase-desc').innerText = "仕切りのある箱（シャトルボックス）に入れます。ショックを開始して各グループの行動を観察しましょう。グラフに回避時間が記録されます！";
+            document.getElementById('op-instruction').innerHTML = "<strong>第2段階のタスク:</strong> 各グループを選んで「電気ショックを開始」しましょう。グループAやCはすぐに右側へジャンプ逃亡を学びますが、Bは床に横たわって動きません。";
+            
+            panel.classList.add('hidden');
+            dog.style.left = '15%';
+            dog.innerText = '🐕❓';
+        } else {
+            // リセットして第1段階へ
+            state.currentPhase = 1;
+            btn.innerText = "次の段階へ ➡️";
+            document.getElementById('lab-phase-title').innerText = "【第1段階：拘束室でのショック訓練】";
+            document.getElementById('lab-phase-desc').innerText = "犬たちのグループを選択し、ショックをスタートしてみましょう。グループAは自力で止められますが、グループBはどんなにあがいても電気を止められない過酷な訓練を経験します。";
+            document.getElementById('op-instruction').innerHTML = "<strong>第1段階のタスク:</strong> AかBを選んでショックを与えましょう。Aはパネルを押せば回避できます。Bはパネルが効かずショックが長続きします。3〜4回実施したら「次の段階」へ進みましょう。";
+            
+            dog.style.left = '15%';
+            dog.innerText = '🐕';
+            state.learningLevelA = 0;
+            state.learningLevelB = 0;
+            state.helplessnessB = 0;
+            state.hasTested = { A: false, B: false, C: false };
+            state.escapeTimes = { A: 15, B: 15, C: 15 };
+            chart.data.datasets[0].data = [0, 0, 0];
+            chart.update();
+        }
+
+        selectGroup(state.selectedGroup);
+        updateUI();
+    }
+
+    // ショック開始・停止のトリガー
+    function triggerShockExperiment() {
+        if (state.isShockOn) {
+            stopShock();
+            return;
+        }
+
+        startShock();
+    }
+
+    function startShock() {
+        state.isShockOn = true;
+        state.shockDuration = 0;
+        
+        const floor = document.getElementById('left-floor');
+        const siren = document.getElementById('warning-siren');
+        const warning = document.getElementById('warning-text');
+        const dog = document.getElementById('lab-dog');
+        const actionBtn = document.getElementById('btn-shock-action');
+
+        floor.classList.add('shock-floor-active');
+        siren.classList.add('animate-bounce', 'text-red-600');
+        warning.innerText = "ショック作動中！⚡";
+        actionBtn.innerHTML = "<i class='fa-solid fa-stop'></i> ショックを強制停止";
+
+        dog.classList.add('dog-shivering');
+
+        // 第1段階(拘束室)のときだけ、グループCはショックなし
+        if (state.selectedGroup === 'C' && state.currentPhase === 1) {
+            floor.classList.remove('shock-floor-active');
+            dog.classList.remove('dog-shivering');
+            warning.innerText = "ショック対象外 (グループC)";
+            showBubble("おだやか...💤");
+            state.isShockOn = false;
+            actionBtn.innerHTML = "<i class='fa-solid fa-bolt'></i> 電気ショックを開始";
+            return;
+        }
+
+        // 第1段階（拘束室）の処理
+        if (state.currentPhase === 1) {
+            document.getElementById('panel-switch').classList.remove('hidden');
+            document.getElementById('panel-status').innerText = "停止用パネル";
+
+            if (state.selectedGroup === 'A') {
+                showBubble("キャンキャン！助けて！");
+                dog.innerText = '🐕💦';
+                // 1.2秒後に自発的にパネルを押す確率（学習レベルAに連動）を設定
+                state.shockTimer = setInterval(() => {
+                    state.shockDuration += 0.2;
+                    if (state.shockDuration >= 6.0 - (state.learningLevelA * 0.05)) {
+                        showBubble("パネルを押したぞ！");
+                        state.learningLevelA = Math.min(100, state.learningLevelA + 30);
+                        stopShock();
+                    }
+                }, 200);
+            } 
+            else if (state.selectedGroup === 'B') {
+                showBubble("キャンキャン！何を押しても効かない！💦");
+                dog.innerText = '🐕💦';
+                document.getElementById('panel-status').innerText = "壊れたパネル";
+                // Bはパネルを連打しても絶対に6秒間ショックが終わらない
+                state.shockTimer = setInterval(() => {
+                    state.shockDuration += 0.2;
+                    state.helplessnessB = Math.min(100, state.helplessnessB + 10);
+                    if (state.shockDuration >= 6.0) {
+                        stopShock();
+                    }
+                }, 200);
+            }
+        } 
+        // 第2段階（シャトルボックス脱出テスト）の処理
+        else if (state.currentPhase === 2) {
+            if (state.selectedGroup === 'A') {
+                // グループA：すぐに飛び越える (仕切りの手前で少し身構えてから飛び越える)
+                showBubble("飛び越えるぞ！");
+                dog.innerText = '🐕💥';
+                
+                state.shockTimer = setInterval(() => {
+                    state.shockDuration += 0.1;
+                    if (state.shockDuration >= 1.8) { // 1.8秒で回避完了
+                        dog.style.left = '75%'; // 右側安全ゾーンへ
+                        dog.innerText = '🐕✨';
+                        showBubble("セーフ！");
+                        state.escapeTimes.A = 1.8;
+                        state.hasTested.A = true;
+                        stopShock();
+                    }
+                }, 100);
+            } 
+            else if (state.selectedGroup === 'B') {
+                // グループB：絶望して横たわる (逃げるのを諦めている)
+                showBubble("どうせ逃げられない...");
+                dog.innerText = '🐕😢';
+                
+                state.shockTimer = setInterval(() => {
+                    state.shockDuration += 0.1;
+                    if (state.shockDuration >= 15.0) { // 15秒で強制時間切れ
+                        state.escapeTimes.B = 15.0; // 回避不能
+                        state.hasTested.B = true;
+                        stopShock();
+                    }
+                }, 100);
+            }
+            else if (state.selectedGroup === 'C') {
+                // グループC：ショックに驚き、すぐに飛び越えて安全な右側に逃げる
+                showBubble("うわっ！電気ショックだ！飛び越えるぞ！");
+                dog.innerText = '🐕💥';
+                
+                state.shockTimer = setInterval(() => {
+                    state.shockDuration += 0.1;
+                    if (state.shockDuration >= 2.2) { // 2.2秒で飛び越えて回避完了
+                        dog.style.left = '75%'; // 右側安全ゾーンへ
+                        dog.innerText = '🐕✨';
+                        showBubble("ふぅ、あぶなかった！");
+                        state.escapeTimes.C = 2.2;
+                        state.hasTested.C = true;
+                        stopShock();
+                    }
+                }, 100);
+            }
+        }
+        updateUI();
+    }
+
+    function stopShock() {
+        state.isShockOn = false;
+        clearInterval(state.shockTimer);
+
+        const floor = document.getElementById('left-floor');
+        const siren = document.getElementById('warning-siren');
+        const warning = document.getElementById('warning-text');
+        const dog = document.getElementById('lab-dog');
+        const actionBtn = document.getElementById('btn-shock-action');
+
+        floor.classList.remove('shock-floor-active');
+        siren.classList.remove('animate-bounce', 'text-red-600');
+        warning.innerText = "ショック停止中";
+        actionBtn.innerHTML = "<i class='fa-solid fa-bolt'></i> 電気ショックを開始";
+
+        dog.classList.remove('dog-shivering');
+
+        if (state.currentPhase === 1) {
+            document.getElementById('panel-switch').classList.add('hidden');
+            if (state.selectedGroup === 'A') {
+                dog.innerText = '🐕';
+                showBubble("ふぅ、助かった...");
+            } else if (state.selectedGroup === 'B') {
+                dog.innerText = '🐕😢';
+                showBubble("ひどい目に遭った...");
+            }
+        } else {
+            if (state.selectedGroup === 'B' && state.shockDuration >= 15.0) {
+                showBubble("うぅ、痛かった...");
+                dog.innerText = '🐕😢';
+            }
+            updateChart();
+        }
+
+        updateUI();
+    }
+
+    // 手動でパネルを押す (グループAを助ける / 進行速度アップ)
+    function pressPanel() {
+        if (!state.isShockOn || state.currentPhase !== 1) return;
+        
+        if (state.selectedGroup === 'A') {
+            showBubble("（手動）パネルで回避に成功！");
+            state.learningLevelA = Math.min(100, state.learningLevelA + 35);
+            stopShock();
+        } else if (state.selectedGroup === 'B') {
+            showBubble("（手動）押しても反応がない！");
+        }
+    }
+
+    function showBubble(text) {
+        const bubble = document.getElementById('dog-bubble');
+        bubble.innerText = text;
+        bubble.style.opacity = '1';
+        setTimeout(() => {
+            bubble.style.opacity = '0';
+        }, 1800);
+    }
+
+    function updateChart() {
+        const data = [
+            state.hasTested.A ? state.escapeTimes.A : 0,
+            state.hasTested.B ? state.escapeTimes.B : 0,
+            state.hasTested.C ? state.escapeTimes.C : 0
+        ];
+        chart.data.datasets[0].data = data;
+        chart.update();
+    }
+
+    function updateUI() {
+        document.getElementById('dog-mood-text').innerText = 
+            state.selectedGroup === 'A' ? (state.learningLevelA > 70 ? '仕組みを把握した' : '焦り中') :
+            state.selectedGroup === 'B' ? (state.helplessnessB > 70 ? '諦めの境地（絶望）' : '混乱中') : '安心';
+
+        document.getElementById('helplessness-gauge-text').innerText = 
+            state.selectedGroup === 'B' ? state.helplessnessB + '%' : '0%';
+    }
+
+    // ==================== 克服トレーニング (セラピー) ====================
+    function applyTherapy(method) {
+        const dog = document.getElementById('therapy-dog');
+        const bubble = document.getElementById('t-dog-bubble');
+        const food = document.getElementById('therapy-food');
+        const barrier = document.getElementById('therapy-barrier');
+
+        if (method === 'food') {
+            // エサを置いて誘導する
+            state.hasTherapyFood = true;
+            food.style.opacity = '1';
+            food.style.transform = 'translateY(0) scale(1.1)';
+            
+            showTherapyBubble("クンクン、いい匂い...？");
+            state.therapyEfficacy = Math.min(100, state.therapyEfficacy + 25);
+            
+            // エサがあるので、一歩だけ仕切りの方に歩み寄る
+            setTimeout(() => {
+                dog.style.left = '35%';
+            }, 800);
+        } 
+        else if (method === 'barrier') {
+            // ハードルを下げる (仕切りを低くする)
+            state.barrierHeight = Math.max(15, state.barrierHeight - 15);
+            barrier.style.height = state.barrierHeight + 'px';
+            
+            showTherapyBubble("これなら跨げるかな...？");
+            state.therapyEfficacy = Math.min(100, state.therapyEfficacy + 25);
+        } 
+        else if (method === 'force') {
+            // 体を抱えて越えさせる (強制的な成功体験)
+            dog.style.left = '45%';
+            
+            setTimeout(() => {
+                dog.style.transform = 'translateY(-40px)';
+                setTimeout(() => {
+                    dog.style.transform = 'translateY(0)';
+                    dog.style.left = '75%';
+                    dog.innerText = '🐕😋';
+                    showTherapyBubble("あっ、越えられた！");
+                    state.therapyEfficacy = Math.min(100, state.therapyEfficacy + 40);
+                    
+                    if (state.hasTherapyFood) {
+                        food.style.opacity = '0';
+                        state.hasTherapyFood = false;
+                    }
+                }, 400);
+            }, 300);
+        }
+
+        updateTherapyUI();
+    }
+
+    function showTherapyBubble(text) {
+        const bubble = document.getElementById('t-dog-bubble');
+        bubble.innerText = text;
+        bubble.style.left = document.getElementById('therapy-dog').style.left;
+        bubble.style.opacity = '1';
+        setTimeout(() => {
+            bubble.style.opacity = '0';
+        }, 1500);
+    }
+
+    function updateTherapyUI() {
+        document.getElementById('therapy-progress-text').innerText = state.therapyEfficacy + '%';
+        document.getElementById('therapy-progress-bar').style.width = state.therapyEfficacy + '%';
+
+        const dog = document.getElementById('therapy-dog');
+        if (state.therapyEfficacy >= 100) {
+            dog.innerText = '🐕✨';
+            showTherapyBubble("やればできるんだ！😆");
+            // 自己効力感が100%に達したら、数秒後に左側に戻しても自力で飛び越えるようになります
+            setTimeout(() => {
+                dog.style.left = '15%';
+                dog.innerText = '🐕';
+                // 脱出テストを自動再生して自力突破を確認
+                setTimeout(() => {
+                    dog.style.left = '75%';
+                    dog.innerText = '🐕💨✨';
+                    showTherapyBubble("自分の力で飛び越えた！");
+                }, 1500);
+            }, 2500);
+        } else if (state.therapyEfficacy > 60) {
+            dog.innerText = '🐕❓';
+        } else {
+            dog.innerText = '🐕😢';
+        }
+    }
+
+    // ==================== 帰属スタイルクイズ ====================
+    function answerQuiz(userAnswer) {
+        const quiz = quizData[currentQuizIndex];
+        const feedback = document.getElementById('quiz-feedback');
+        const nextBtn = document.getElementById('btn-next-quiz');
+
+        feedback.classList.remove('opacity-0');
+        if (userAnswer === quiz.a) {
+            feedback.innerHTML = "🎉 <strong>その通り！</strong><br>" + quiz.msg;
+            feedback.className = "mt-6 text-sm font-bold text-indigo-700 bg-indigo-100 p-4 rounded-xl border border-indigo-300";
+        } else {
+            feedback.innerHTML = "😢 <strong>おしい！違うよ</strong><br>" + quiz.msg;
+            feedback.className = "mt-6 text-sm font-bold text-red-700 bg-red-100 p-4 rounded-xl border border-red-300";
+        }
+        nextBtn.classList.remove('hidden');
+    }
+
+    function loadNextQuiz() {
+        currentQuizIndex = (currentQuizIndex + 1) % quizData.length;
+        document.getElementById('quiz-question').innerText = quizData[currentQuizIndex].q;
+        
+        const feedback = document.getElementById('quiz-feedback');
+        feedback.classList.add('opacity-0');
+        feedback.className = "mt-6 text-md font-bold opacity-0 transition-all duration-300 p-4 rounded-xl";
+        document.getElementById('btn-next-quiz').classList.add('hidden');
+    }
+
+    // ==================== タブ切り替え ====================
+    function switchTab(tab) {
+        if (state.isShockOn) stopShock(); // 移動時は実験を停止
+
+        const lab = document.getElementById('section-lab');
+        const therapy = document.getElementById('section-therapy');
+        const quiz = document.getElementById('section-quiz');
+        
+        const tabLab = document.getElementById('tab-lab');
+        const tabTherapy = document.getElementById('tab-therapy');
+        const tabQuiz = document.getElementById('tab-quiz');
+
+        // 全非表示
+        lab.classList.add('hidden');
+        therapy.classList.add('hidden');
+        quiz.classList.add('hidden');
+
+        // タブスタイルリセット
+        [tabLab, tabTherapy, tabQuiz].forEach(btn => {
+            btn.className = "px-4 py-2 md:px-6 md:py-2.5 rounded-full bg-white text-indigo-600 font-bold border border-indigo-200 shadow-sm transition hover:bg-indigo-50 text-sm";
+        });
+
+        if (tab === 'lab') {
+            lab.classList.remove('hidden');
+            tabLab.className = "px-4 py-2 md:px-6 md:py-2.5 rounded-full bg-indigo-600 text-white font-bold shadow-md transition hover:bg-indigo-700 text-sm";
+        } else if (tab === 'therapy') {
+            therapy.classList.remove('hidden');
+            tabTherapy.className = "px-4 py-2 md:px-6 md:py-2.5 rounded-full bg-emerald-600 text-white font-bold shadow-md transition hover:bg-emerald-700 text-sm";
+            // 初期の克服状態をリセットしてスタート
+            state.therapyEfficacy = 0;
+            state.barrierHeight = 60;
+            document.getElementById('therapy-barrier').style.height = '60px';
+            document.getElementById('therapy-dog').style.left = '15%';
+            document.getElementById('therapy-dog').innerText = '🐕😢';
+            updateTherapyUI();
+        } else {
+            quiz.classList.remove('hidden');
+            tabQuiz.className = "px-4 py-2 md:px-6 md:py-2.5 rounded-full bg-indigo-600 text-white font-bold shadow-md transition hover:bg-indigo-700 text-sm";
+        }
+    }
+</script>
+</body>
+</html>
